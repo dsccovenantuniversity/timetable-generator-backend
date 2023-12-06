@@ -1,10 +1,33 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import fitz
-from typing import List
+from fastapi.responses import FileResponse
+from openpyxl import Workbook
+from typing import List, Dict
 import re
 import pandas as pd
 import json
 app = FastAPI()
+
+
+@app.post("/generate_timetable/")
+async def generate_timetable(schedule: Dict[str, Dict[str, str]]):
+
+    timetable_df = pd.DataFrame(index=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                                columns=['8am-9am', '9am-10am', '10am-11am', '11am-12noon', '12noon-1pm',
+                                         '1pm-2pm', '2pm-3pm', '3pm-4pm', '4pm-5pm', '5pm-6pm'])
+
+    for course, details in schedule.items():
+        day = details.get('Day')
+        time = details.get('Time')
+        if day and time:
+            timetable_df.loc[day, time] = course
+
+    # Create an Excel file
+    excel_filename = "timetable.xlsx"
+    timetable_df.to_excel(excel_filename)
+
+    # Return the generated Excel file
+    return FileResponse(excel_filename, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename="timetable.xlsx")
 
 
 @app.post('/upload_course_reg/')
@@ -47,7 +70,7 @@ def create_class_timetable(offered_courses: List[str]):
     friday_timetable = pd.read_csv('timetable/friday.csv')
     timetable_list = [monday_timetable, tuesday_timetable,
                       wednesday_timetable, thursday_timetable, friday_timetable]
-    found_courses = []
+    found_courses = {}
 
     timetable_name = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     for ind, timetable in enumerate(timetable_list):
@@ -65,15 +88,7 @@ def create_class_timetable(offered_courses: List[str]):
                     '/') if pd.notna(row[col]) else []
                 for subject in subjects:
                     if subject.strip() in offered_courses:
-                        found_courses.append({
-                            "course": subject,
-                            "Building": row.iloc[0],
-                            "Room": row.iloc[1],
-                            'Time': f"{start_time}-{end_time}" if start_time and end_time else None,
-                            'Day': timetable_name[ind]
-
-
-
-                        })
+                        found_courses.update(
+                            {subject: {"Building": row.iloc[0], "Room": row.iloc[1], 'Time': f"{start_time}-{end_time}" if start_time and end_time else None, 'Day': timetable_name[ind]}})
 
     return json.dumps(found_courses, indent=2)
