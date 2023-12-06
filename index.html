@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document Upload</title>
+  </head>
+  <body>
+    <input type="file" id="documentInput" accept=".pdf, .docx" />
+    <button onclick="uploadDocument()">Upload Document</button>
+
+    <div id="result"></div>
+
+    <script>
+      async function uploadDocument() {
+        const input = document.getElementById("documentInput");
+        const file = input.files[0];
+
+        if (file) {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          try {
+            const response = await fetch("http://127.0.0.1:8000/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            const result = await response.json();
+            displayResult(result);
+          } catch (error) {
+            console.error("Error:", error);
+            displayResult({ error: "An error occurred." });
+          }
+        } else {
+          alert("Please choose a file to upload.");
+        }
+      }
+
+      function displayResult(result) {
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = JSON.stringify(result, null, 2);
+      }
+    </script>
+  </body>
+</html>
