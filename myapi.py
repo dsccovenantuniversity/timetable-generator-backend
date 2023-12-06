@@ -1,13 +1,45 @@
-from fastapi import FastAPI, Path
+from fastapi import FastAPI, UploadFile, File, HTTPException
+import fitz
 from typing import List
-
+import re
 import pandas as pd
 import json
 app = FastAPI()
 
 
+@app.post('/upload_course_reg/')
+async def upload_course_reg(file: UploadFile = File(...)):
+    try:
+
+        pdf_content = await file.read()
+        course_codes = extract_course_codes_from_pdf(pdf_content)
+
+        return {'course_codes': course_codes}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def extract_course_codes_from_pdf(pdf_content):
+
+    doc = fitz.open(stream=pdf_content, filetype="pdf")
+    text = ""
+    for page_number in range(doc.page_count):
+        page = doc[page_number]
+        text += page.get_text("text")
+
+    course_codes = parse_course_codes_from_text(text)
+    return course_codes
+
+
+def parse_course_codes_from_text(text):
+
+    course_code_pattern = re.compile(r'\b[A-Z]{3}\d{3}\b')
+    course_codes = course_code_pattern.findall(text)
+    return course_codes
+
+
 @app.post('/create_class_timetable/')
-def create_class_timetable(offered_courses: List[str] = Path(None, "A list of the courses the student is offering", gt=2)):
+def create_class_timetable(offered_courses: List[str]):
     monday_timetable = pd.read_csv('timetable/monday.csv')
     tuesday_timetable = pd.read_csv('timetable/tuesday.csv')
     wednesday_timetable = pd.read_csv('timetable/wednesday.csv')
