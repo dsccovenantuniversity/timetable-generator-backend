@@ -22,31 +22,7 @@ class CourseScheduleItem(BaseModel):
 class TimetableResponse(BaseModel):
     message: str
 
-
-@app.post("/generate_timetable/", response_model=TimetableResponse)
-def generate_timetable(schedule: Dict[str, List[Dict[str, str]]]):
-
-    timetable_df = pd.DataFrame(index=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-                                columns=['8am-9am', '9am-10am', '10am-11am', '11am-12noon', '12noon-1pm',
-                                         '1pm-2pm', '2pm-3pm', '3pm-4pm', '4pm-5pm', '5pm-6pm'])
-
-    # for course, details in schedule.items():
-    #     day = details.get('Day')
-    #     time = details.get('Time')
-    #     if day and time:
-    #         timetable_df.loc[day, time] = course
-
-    for course, details_list in schedule.items():
-        for details in details_list:
-            day = details.get('Day')
-            time = details.get('Time')
-            if day and time:
-                timetable_df.loc[day, time] = course
-
-    excel_filename = "timetable.xlsx"
-    timetable_df.to_excel(excel_filename)
-
-    return FileResponse(excel_filename, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename="timetable.xlsx")
+#  response_model=TimetableResponse
 
 
 @app.post('/upload_course_reg/')
@@ -118,6 +94,27 @@ def create_class_timetable(offered_courses: List[str]):
 
     return found_courses
 
+
+@app.post("/generate_timetable/")
+def generate_timetable(schedule: Dict[str, List[Dict[str, str]]]):
+
+    timetable_df = pd.DataFrame(index=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                                columns=['8am-9am', '9am-10am', '10am-11am', '11am-12noon', '12noon-1pm',
+                                         '1pm-2pm', '2pm-3pm', '3pm-4pm', '4pm-5pm', '5pm-6pm'])
+
+    for course, details_list in schedule.items():
+        for details in details_list:
+            day = details.get('Day')
+            time = details.get('Time')
+            if day and time:
+                timetable_df.loc[day, time] = course
+    for day in timetable_df.index:
+        timetable_df.loc[day, '2pm-3pm'] = "BREAK TIME"
+
+    excel_filename = "timetable.xlsx"
+    timetable_df.to_excel(excel_filename)
+
+    return FileResponse(excel_filename, filename="timetable.xlsx")
 
 # WORK ON EXCEL
 # DEPLOY
