@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import fitz
 from fastapi.responses import FileResponse
@@ -6,27 +7,45 @@ from typing import List, Dict
 import re
 import pandas as pd
 import json
+from io import BytesIO
 app = FastAPI()
 
 
-@app.post("/generate_timetable/")
-async def generate_timetable(schedule: Dict[str, Dict[str, str]]):
+class CourseScheduleItem(BaseModel):
+    course: str
+    Building: str
+    Room: str
+    Time: str
+    Day: str
+
+
+class TimetableResponse(BaseModel):
+    message: str
+
+
+@app.post("/generate_timetable/", response_model=TimetableResponse)
+def generate_timetable(schedule: Dict[str, List[Dict[str, str]]]):
 
     timetable_df = pd.DataFrame(index=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
                                 columns=['8am-9am', '9am-10am', '10am-11am', '11am-12noon', '12noon-1pm',
                                          '1pm-2pm', '2pm-3pm', '3pm-4pm', '4pm-5pm', '5pm-6pm'])
 
-    for course, details in schedule.items():
-        day = details.get('Day')
-        time = details.get('Time')
-        if day and time:
-            timetable_df.loc[day, time] = course
+    # for course, details in schedule.items():
+    #     day = details.get('Day')
+    #     time = details.get('Time')
+    #     if day and time:
+    #         timetable_df.loc[day, time] = course
 
-    # Create an Excel file
+    for course, details_list in schedule.items():
+        for details in details_list:
+            day = details.get('Day')
+            time = details.get('Time')
+            if day and time:
+                timetable_df.loc[day, time] = course
+
     excel_filename = "timetable.xlsx"
     timetable_df.to_excel(excel_filename)
 
-    # Return the generated Excel file
     return FileResponse(excel_filename, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename="timetable.xlsx")
 
 
@@ -74,10 +93,8 @@ def create_class_timetable(offered_courses: List[str]):
 
     timetable_name = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     for ind, timetable in enumerate(timetable_list):
-
         for index, row in timetable.iterrows():
             for col in timetable.columns[2:]:
-
                 if '_' in col:
                     time_slot = col.split('_')
                     start_time, end_time = time_slot[0], time_slot[1]
@@ -88,7 +105,20 @@ def create_class_timetable(offered_courses: List[str]):
                     '/') if pd.notna(row[col]) else []
                 for subject in subjects:
                     if subject.strip() in offered_courses:
-                        found_courses.update(
-                            {subject: {"Building": row.iloc[0], "Room": row.iloc[1], 'Time': f"{start_time}-{end_time}" if start_time and end_time else None, 'Day': timetable_name[ind]}})
+                        course_key = subject.strip()
+                        if course_key not in found_courses:
+                            found_courses[course_key] = []
+                        found_courses[course_key].append({
+                            "course": subject,
+                            "Building": row.iloc[0],
+                            "Room": row.iloc[1],
+                            "Time": f"{start_time}-{end_time}" if start_time and end_time else None,
+                            "Day": timetable_name[ind]}
+                        )
 
-    return json.dumps(found_courses, indent=2)
+    return found_courses
+
+
+# WORK ON EXCEL
+# DEPLOY
+# TEST WITH A RANDOM APPLICATION
