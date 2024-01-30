@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
 
-    "authentication.apps.AuthenticationConfig"
+    "authentication.apps.AuthenticationConfig",
+    "timetable.apps.TimetableConfig"
 ]
 
 MIDDLEWARE = [
